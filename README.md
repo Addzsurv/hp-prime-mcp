@@ -95,6 +95,15 @@ Claude Desktop: the same block under `mcpServers` in `claude_desktop_config.json
 - hp-prime-kit's USB send was measured on firmware 15515; this server passes `--any-build` so it also runs on newer builds. Tested by the author on a G2, build 15751, with the Kit route; treat the USB route as experimental.
 - While a program is running on the calculator, the screen shows that program, and the Connectivity Kit can't browse the calculator.
 
+## Related projects
+
+Other MCP servers for the HP Prime work on the PC side, without the calculator:
+
+- [hp-prime-tutorial](https://github.com/dominikmaslak11/hp-prime-tutorial) (Polish): its `ppl` tool includes an MCP server that validates, formats and runs PPL in a simulator and builds `.hpprgm` files.
+- [hpprime-markdown-viewer](https://github.com/abaccin/hpprime-markdown-viewer): includes an MCP server that searches the HP Prime user guide and scaffolds Python apps.
+
+hp-prime-mcp is for the other half: the calculator on the cable (its screen, sending to it, reading back from it). They work well side by side.
+
 ## Questions, other models and firmware
 
 Tested on an HP Prime G2, firmware build 15751, on Windows 11. If you try it on a G1, another firmware or another OS, please [open an issue](https://github.com/Addzsurv/hp-prime-mcp/issues) with what worked.

@@ -20,7 +20,7 @@ import subprocess
 import sys
 import time
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 HOME = os.path.expanduser("~")
 KIT = os.environ.get("HP_PRIME_KIT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "hp-prime-kit", "hpprime.py"))
 CK_DIR = os.environ.get("HP_CK_DIR", os.path.join(HOME, "Documents", "HP Connectivity Kit"))
@@ -104,6 +104,98 @@ def ensure_out():
     return OUT
 
 
+# ------------------------------------------------------------------ Prime-only checks
+# Mistakes that pass hp-prime-kit lint and hpdev check but give "Syntax Error" on a real
+# HP Prime G2 (firmware 15751). "det" and "e" as variable names and a 9th name on a
+# LOCAL line were each found the hard way on a real calculator.
+
+RESERVED_TESTED = {"det", "e"}
+RESERVED_LIKELY = {
+    # lower-case CAS commands people pick as variable names
+    "pi", "max", "min", "abs", "sum", "size", "mean", "sort", "solve", "diff", "int", "sqrt",
+    "exp", "ln", "log", "sin", "cos", "tan", "re", "im", "conj", "sign", "factor", "expand", "subst",
+    "limit", "zeros", "rank", "trace", "transpose", "inv", "gcd", "lcm", "rand", "floor", "ceil",
+    "round", "string", "char", "length", "head", "tail", "normal", "eval",
+    # upper-case Home commands
+    "SIZE", "DIM", "MAX", "MIN", "ABS", "SUM", "LEFT", "RIGHT", "MID", "POS", "STRING", "TYPE",
+    "SUB", "SORT", "EXPR", "CHAR", "IP", "FP", "ROUND", "FLOOR", "CEILING", "LOG", "LN", "EXP",
+    "SIN", "COS", "TAN", "RECT", "LINE", "WAIT", "PRINT", "INPUT", "CHOOSE", "MSGBOX", "MOUSE",
+    "GETKEY", "DET", "INT", "RANDOM", "MAKELIST", "MAKEMAT", "CONCAT", "REVERSE",
+}
+
+
+def _strip(line):
+    """a source line without its // comment and with string literals blanked"""
+    out, ins = [], False
+    i = 0
+    while i < len(line):
+        c = line[i]
+        if ins:
+            if c == '"':
+                ins = False
+            out.append(" ")
+        elif c == '"':
+            ins = True
+            out.append(" ")
+        elif line.startswith("//", i):
+            break
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _split_top(txt):
+    """split on commas that are not inside () [] {}"""
+    parts, depth, cur = [], 0, ""
+    for c in txt:
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        if c == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += c
+    parts.append(cur)
+    return parts
+
+
+def _name_issue(name, where):
+    if name in RESERVED_TESTED:
+        return f"ERROR {where}: '{name}' is a built-in name; as a variable it gives Syntax Error on the calculator. Rename it."
+    if name in RESERVED_LIKELY:
+        return f"WARN  {where}: '{name}' is a built-in name; it may give Syntax Error on the calculator. Safer to rename it."
+    return None
+
+
+def ppl_checks(path):
+    """errors and warnings for things only the real calculator rejects"""
+    import re
+    lines = open(path, encoding="utf-8-sig", errors="replace").read().splitlines()
+    msgs = []
+    for n, raw in enumerate(lines, 1):
+        ln = _strip(raw)
+        for m in re.finditer(r"\bLOCAL\b([^;]*)", ln):
+            names = [p.split(":=")[0].strip() for p in _split_top(m.group(1)) if p.strip()]
+            if len(names) > 8:
+                msgs.append(f"ERROR line {n}: {len(names)} names on one LOCAL line; the calculator allows 8. Split it over two LOCAL lines.")
+            for nm in names:
+                iss = _name_issue(nm, f"line {n}")
+                if iss:
+                    msgs.append(iss)
+        fm = re.match(r"\s*(?:EXPORT\s+)?([A-Za-z_]\w*)\s*\(([^)]*)\)\s*$", ln)
+        if fm and fm.group(2).strip():
+            nxt = next((_strip(x).strip() for x in lines[n:] if _strip(x).strip()), "")
+            if nxt.upper().startswith("BEGIN"):
+                for nm in (x.strip() for x in fm.group(2).split(",")):
+                    iss = _name_issue(nm, f"line {n} (parameter of {fm.group(1)})")
+                    if iss:
+                        msgs.append(iss)
+    return msgs
+
+
 # ------------------------------------------------------------------ tools
 
 def t_status(a):
@@ -146,6 +238,8 @@ def t_lint(a):
         return err("file: path to a PPL source (.txt) is required")
     code, out = kit_on("lint", f, timeout=60)
     res = out[-3000:]
+    pc = ppl_checks(f)
+    res += "\n\nPrime-only checks (things the calculator rejects that other checkers pass):\n" + ("\n".join(pc) if pc else "none found")
     if HPDEV and os.path.exists(HPDEV):
         c2, o2 = run([HPDEV, "check", f], 60)
         res += "\n\nhpdev check:\n" + "\n".join(o2.splitlines()[-30:])
@@ -163,6 +257,9 @@ def t_send(a):
         code, out = kit_on("lint", f, timeout=60)
         if " 0 error(s)" not in out:
             return err("Not sent: the linter found errors.\n" + out[-2000:])
+        pc = [m for m in ppl_checks(f) if m.startswith("ERROR")]
+        if pc:
+            return err("Not sent: this would give Syntax Error on the calculator.\n" + "\n".join(pc))
         prg = os.path.join(ensure_out(), name + ".hpprgm")
         code, out = kit_on("write", f, "-o", os.path.abspath(prg), timeout=60)
         if code != 0:
@@ -260,7 +357,8 @@ TOOLS = [
     ("prime_status", t_status, "Which calculators the PC has data for, their programs, and whether the Connectivity Kit is running.", {}),
     ("prime_screen", t_screen, "Picture of what the HP Prime on the USB cable is showing now. The Connectivity Kit must be closed: "
                                "close_kit=true closes it for the capture and reopens it.", {"close_kit": {"type": "boolean"}}),
-    ("prime_lint", t_lint, "Check a PPL source file for errors the Prime's compiler won't explain (hp-prime-kit lint, plus hpdev check if HPDEV is set).",
+    ("prime_lint", t_lint, "Check a PPL source file for errors the Prime's compiler won't explain: hp-prime-kit lint, Prime-only checks "
+                           "(built-in names used as variables, more than 8 names on a LOCAL line), plus hpdev check if HPDEV is set.",
      {"file": {"type": "string"}}),
     ("prime_send_program", t_send, "Lint, build and install a PPL program. method 'kit' (default) puts it in the Connectivity Kit's send list "
                                    "for a right-click Send; 'usb' sends it straight over the cable, replacing any program of that name without asking.",

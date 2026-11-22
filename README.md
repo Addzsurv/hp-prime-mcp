@@ -37,12 +37,21 @@ The assistant lints the program, builds it, puts it on the calculator (you click
 |---|---|
 | `prime_status` | Which calculators the PC has data for, their programs, and whether the Connectivity Kit is running |
 | `prime_screen` | A picture of the calculator's screen right now |
-| `prime_lint` | Check a PPL source for errors the Prime's compiler won't explain |
+| `prime_lint` | Check a PPL source for errors the Prime's compiler won't explain, including mistakes other checkers pass but the real calculator rejects (see below) |
 | `prime_send_program` | Lint, build and install a program, through the Connectivity Kit (default) or straight over USB |
 | `prime_list` | Programs, matrices, lists, apps and notes on a calculator |
 | `prime_read_matrix` | A matrix (M0..M9) as rows of numbers |
 | `prime_read_program` | A program's source code, read back off the calculator |
 | `prime_preview` | Run PPL on the PC and render the screen it draws (optional, needs hpdev) |
+
+## Catches what the real calculator rejects
+
+Some PPL passes every PC checker and then stops with a bare "Syntax Error" on the calculator. `prime_lint` and `prime_send_program` look for the ones found the hard way on a real G2:
+
+- **A built-in name used as a variable.** `LOCAL det;` or `LOCAL e;` (or a function parameter called `det`) fails on the calculator. Other common built-ins (`max`, `size`, `SIZE`, `STRING`...) are flagged as warnings.
+- **More than 8 names on one `LOCAL` line.** The calculator allows 8; split the line in two.
+
+`prime_send_program` refuses to send a program with one of these errors, so it never reaches the calculator broken. Found another one? Please [open an issue](https://github.com/Addzsurv/hp-prime-mcp/issues).
 
 ## Needs
 

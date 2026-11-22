@@ -1,10 +1,22 @@
 # hp-prime-mcp
 
-An [MCP](https://modelcontextprotocol.io) server for the **HP Prime** graphing calculator.
+**Connect your HP Prime calculator to Claude and other AI assistants.**
 
-It lets an AI assistant (Claude Code, Claude Desktop, or any MCP client) **see what your HP Prime is showing, send it programs, and read its variables and programs back**, over the USB cable.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server for the **HP Prime G2** graphing calculator. Plug the Prime into your PC with its USB cable and your AI assistant can **see the calculator's screen, write and install HP PPL programs on it, and read programs and matrices back**.
 
-As far as I could find, it is the first MCP server for a real calculator.
+Works with Claude Code, Claude Desktop and any MCP client. Windows, Python, no extra packages.
+
+![examples/HELLO.txt as the Prime draws it (rendered on the PC with prime_preview)](docs/hello_preview.png)
+
+*Keywords: HP Prime, HP Prime G2, HP PPL, HP Prime programming, HP Connectivity Kit, MCP server, Claude, AI, calculator, USB, screenshot.*
+
+## Try it in one sentence
+
+With it set up (below), plug in your Prime and ask your assistant:
+
+> "Check, send and run `examples/HELLO.txt` on my HP Prime, then show me its screen."
+
+The assistant lints the program, builds it, puts it on the calculator (you click Send in the Connectivity Kit, or it goes straight over USB), and takes a screenshot to confirm.
 
 ## What it's good for
 
@@ -82,6 +94,10 @@ Claude Desktop: the same block under `mcpServers` in `claude_desktop_config.json
 - **The USB send replaces a program of the same name without asking**, and the calculator acknowledges nothing: check with `prime_screen`. The Connectivity Kit route (`method: "kit"`) is the safer default.
 - hp-prime-kit's USB send was measured on firmware 15515; this server passes `--any-build` so it also runs on newer builds. Tested by the author on a G2, build 15751, with the Kit route; treat the USB route as experimental.
 - While a program is running on the calculator, the screen shows that program, and the Connectivity Kit can't browse the calculator.
+
+## Questions, other models and firmware
+
+Tested on an HP Prime G2, firmware build 15751, on Windows 11. If you try it on a G1, another firmware or another OS, please [open an issue](https://github.com/Addzsurv/hp-prime-mcp/issues) with what worked.
 
 ## Licence
 

@@ -1,0 +1,9 @@
+// A first program to try with hp-prime-mcp: ask your assistant to
+// "lint, send and run examples/HELLO.txt on my HP Prime, then show me the screen".
+EXPORT HELLO()
+BEGIN
+  RECT_P(0,0,319,239,RGB(20,60,120));
+  TEXTOUT_P("Hello from hp-prime-mcp",20,90,5,RGB(255,255,255),280);
+  TEXTOUT_P("Sent by an AI assistant over USB",20,130,3,RGB(200,215,240),280);
+  WAIT(-1);
+END;
